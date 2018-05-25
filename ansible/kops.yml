@@ -1,0 +1,47 @@
+- hosts: all
+  become: true
+  gather_facts: no
+
+  #handlers:
+  #  - name: restart jenkins
+  #    service: name=jenkins state=restarted daemon_reload=yes
+  #
+  #  - name: restart docker
+  #    service: name=docker state=restarted daemon_reload=yes
+
+
+  tasks:
+    - name: Wait 300 seconds for port 22 to become open and contain "OpenSSH"
+      wait_for:
+        port: 22
+        host: '{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}'
+        search_regex: OpenSSH
+        delay: 10
+      connection: local
+
+    - name: Download kops
+      get_url:
+        url: https://github.com/kubernetes/kops/releases/download/1.9.0/kops-linux-amd64
+        dest: /usr/local/bin/kops
+        mode: 0755
+    
+
+    - name: Download kubectl
+      get_url:
+        url: https://storage.googleapis.com/kubernetes-release/release/v1.10.3/bin/linux/amd64/kubectl
+        dest: /usr/local/bin/kubectl
+        mode: 0755
+
+ 
+    - name: Install packages
+      package: name={{ item }} state=present
+      with_items:
+      - epel-release
+      - python-pip
+    
+    - name: Install awscli
+      pip: name=awscli
+
+    - name: Create kops wrapper
+      template: src=templates/cluster.yaml.j2 dest=/root/cluster.yaml mode="0644" owner=root group=root
+
